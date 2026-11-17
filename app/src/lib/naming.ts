@@ -84,6 +84,8 @@ export interface PaneSpec {
   title: string;
   cwd: string;
   command?: string;
+  /** Terminais extras podem ser fechados (botão × ou ao sair do shell). */
+  closable?: boolean;
 }
 
 /**
@@ -105,8 +107,8 @@ export function panesFor(feature: Feature, ws: Workspace | undefined): PaneSpec[
     }
   }
   const first = feature.repos[0];
-  for (let i = 0; i < feature.extraTerminals; i++) {
-    panes.push({ id: terminalId(feature.id, first.name, 10 + i), repo: first.name, title: `${first.name} · shell ${i + 2}`, cwd: first.path });
+  for (const n of feature.extraTerms) {
+    panes.push({ id: terminalId(feature.id, first.name, 10 + n), repo: first.name, title: `${first.name} · shell ${n + 2}`, cwd: first.path, closable: true });
   }
   return panes;
 }

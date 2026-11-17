@@ -112,6 +112,7 @@ function Pane({ spec }: { spec: PaneSpec }) {
   const fontSize = useStore((s) => s.settings.fontSize);
   const shell = useStore((s) => s.settings.shell);
   const ready = useStore((s) => s.agent.connected);
+  const closeTerminal = useStore((s) => s.closeTerminal);
   useEffect(() => {
     if (!ref.current || !ready) return;
     return mountTerminal(ref.current, spec, { fontSize, shell });
@@ -123,6 +124,11 @@ function Pane({ spec }: { spec: PaneSpec }) {
         <span className="dot" style={{ width: 6, height: 6, background: spec.command ? "#6EE7B7" : "#C4B5FD" }} />
         <span style={{ color: "var(--ink)" }}>{spec.title}</span>
         <span style={{ color: "var(--dim)", marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{spec.cwd.split("/").slice(-2).join("/")}</span>
+        {spec.closable && (
+          <button className="link pane-close" aria-label={`Fechar ${spec.title}`} title="Fechar terminal" onClick={() => void closeTerminal(spec.id)}>
+            <Icon name="close" size={12} />
+          </button>
+        )}
       </div>
       <div className="pane-body" ref={ref}>
         {!ready && <p className="hint">Conectando ao WSL…</p>}

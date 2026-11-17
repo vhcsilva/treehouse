@@ -85,7 +85,7 @@ describe.skipIf(!BIN)("interface ↔ agente real", () => {
       id: "pay-1", workspaceId: "w", name: "Teste", slug: "pay-1", color: "#A78BFA", branch: "feature/PAY-1-teste",
       jiraKey: "PAY-1", root, workspaceFile: `${root}.code-workspace`,
       repos: [{ name: "api", clonePath: clone, path: created[0].path, base: "origin/develop" }],
-      extraTerminals: 0, createdAt: "", archivedAt: null,
+      extraTerms: [], createdAt: "", archivedAt: null,
     };
     await agent.call("fs.writeFile", { path: feature.workspaceFile, content: workspaceFileContent(feature) });
     expect(JSON.parse(readFileSync(feature.workspaceFile, "utf8")).folders[0].path).toBe("pay-1/api");

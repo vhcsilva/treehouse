@@ -3,7 +3,7 @@ import { errorMessage, getBackend, isRpcError, type AgentStatus, type Backend } 
 import { dirname, featureSlug, joinPath, nextColor, workspaceFileContent } from "./lib/naming";
 import { codes, type Commit, type RepoStatus } from "./lib/protocol";
 import { DEFAULT_SETTINGS, type Feature, type Settings, type Workspace } from "./lib/types";
-import { disposeTerminals } from "./terminals";
+import { disposeTerminal, disposeTerminals } from "./terminals";
 
 export type View = "wt" | "overview" | "settings" | "welcome";
 export type SettingsTab = "ws" | "kiro" | "look";
@@ -56,6 +56,7 @@ interface State {
   abortRebase(): Promise<void>;
   openKiro(feature?: Feature): Promise<void>;
   addTerminal(): Promise<void>;
+  closeTerminal(paneId: string): Promise<void>;
   refreshStatus(featureId?: string): Promise<void>;
 }
 
@@ -101,11 +102,15 @@ export const useStore = create<State>((set, get) => {
     async init() {
       const backend = await getBackend();
       backend.onStatus((agent) => set({ agent }));
-      const [workspaces, features, settingsDocs] = await Promise.all([
+      const [workspaces, rawFeatures, settingsDocs] = await Promise.all([
         backend.dbList<Workspace>("workspaces"),
         backend.dbList<Feature>("features"),
         backend.dbList<Settings>("settings"),
       ]);
+      const features = rawFeatures.map((f) => ({
+        ...f,
+        extraTerms: f.extraTerms ?? Array.from({ length: f.extraTerminals ?? 0 }, (_, i) => i),
+      }));
       const settings = { ...DEFAULT_SETTINGS, ...(settingsDocs[0] ?? {}) };
       set({ backend, workspaces, features, settings, ready: true, view: workspaces.length ? "wt" : "welcome" });
       const first = activeFeatures(get())[0];
@@ -191,7 +196,7 @@ export const useStore = create<State>((set, get) => {
             base: c.base,
             clonePath: ws.repos.find((x) => x.name === c.repo)!.path,
           })),
-          extraTerminals: 0,
+          extraTerms: [],
           createdAt: new Date().toISOString(),
           archivedAt: null,
         };
@@ -287,7 +292,18 @@ export const useStore = create<State>((set, get) => {
 
     async addTerminal() {
       const f = selectedFeature(get());
-      if (f) await putFeature({ ...f, extraTerminals: Math.min(f.extraTerminals + 1, 4) });
+      if (!f || f.extraTerms.length >= 4) return;
+      const next = f.extraTerms.length ? Math.max(...f.extraTerms) + 1 : 0;
+      await putFeature({ ...f, extraTerms: [...f.extraTerms, next] });
+    },
+
+    async closeTerminal(paneId) {
+      disposeTerminal(paneId);
+      // O terminal pode ser de outra feature (o shell saiu enquanto ela estava escondida).
+      const f = get().features.find((x) => paneId.startsWith(`${x.id}/`));
+      if (!f) return;
+      const n = Number(paneId.split("/").pop()) - 10;
+      if (f.extraTerms.includes(n)) await putFeature({ ...f, extraTerms: f.extraTerms.filter((x) => x !== n) });
     },
 
     async refreshStatus(featureId) {

@@ -13,10 +13,20 @@ interface Instance {
   el: HTMLDivElement;
   opened: boolean;
   started: boolean;
+  /** O processo saiu; Enter abre um shell novo no mesmo lugar. */
+  exited: boolean;
+  spec: PaneSpec;
+  opts: { fontSize: number; shell: string };
 }
 
 const instances = new Map<string, Instance>();
 let backend: Backend | null = null;
+/** Chamado quando o shell de um terminal fechável sai (o painel deve sumir). */
+let onClosableExit: (id: string) => void = () => {};
+
+export function setClosableExitHandler(fn: (id: string) => void) {
+  onClosableExit = fn;
+}
 
 const b64ToBytes = (b64: string) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 const textToB64 = (text: string) => {
@@ -33,8 +43,14 @@ export function bindTerminalEvents(b: Backend) {
     if (!inst) return;
     if (n.method === "term.output") inst.term.write(b64ToBytes(n.params.data));
     if (n.method === "term.exit") {
-      inst.term.write(`\r\n\x1b[2m[processo encerrado${n.params.code != null ? `: código ${n.params.code}` : ""}]\x1b[0m\r\n`);
-      inst.started = false; // ao voltar, abre um shell novo
+      inst.started = false;
+      if (inst.spec.closable) {
+        onClosableExit(inst.spec.id);
+        return;
+      }
+      inst.exited = true;
+      const code = n.params.code != null ? `: código ${n.params.code}` : "";
+      inst.term.write(`\r\n\x1b[2m[processo encerrado${code}] pressione Enter para abrir um shell novo\x1b[0m\r\n`);
     }
   });
 }
@@ -42,7 +58,35 @@ export function bindTerminalEvents(b: Backend) {
 /** Atalhos do app passam pelo terminal: Ctrl+Shift+<tecla> e Ctrl+1…9. */
 const isAppShortcut = (e: KeyboardEvent) => e.ctrlKey && (e.shiftKey || /^[1-9]$/.test(e.key));
 
-function create(spec: PaneSpec, fontSize: number): Instance {
+function start(i: Instance) {
+  if (!backend || i.started) return;
+  // Ao reabrir depois de um `exit`, só o shell: o comando do repo não roda de novo sem pedir.
+  const command = i.exited ? undefined : i.spec.command;
+  i.started = true;
+  i.exited = false;
+  backend
+    .call("term.open", {
+      id: i.spec.id,
+      cwd: i.spec.cwd,
+      command,
+      shell: i.opts.shell || undefined,
+      cols: i.term.cols,
+      rows: i.term.rows,
+    })
+    .then((res) => {
+      if (!res.created && res.scrollback) {
+        i.term.reset();
+        i.term.write(b64ToBytes(res.scrollback));
+      }
+    })
+    .catch((e) => {
+      i.started = false;
+      i.term.write(`\x1b[31mNão foi possível abrir o terminal: ${errorMessage(e)}\x1b[0m\r\n`);
+    });
+}
+
+function create(spec: PaneSpec, opts: { fontSize: number; shell: string }): Instance {
+  const fontSize = opts.fontSize;
   const term = new Terminal({
     fontFamily: "'JetBrains Mono', 'Cascadia Mono', Consolas, monospace",
     fontSize,
@@ -69,21 +113,31 @@ function create(spec: PaneSpec, fontSize: number): Instance {
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.attachCustomKeyEventHandler((e) => !isAppShortcut(e));
-  term.onData((data) => {
-    void backend?.call("term.write", { id: spec.id, data: textToB64(data) }).catch(() => {});
-  });
   const el = document.createElement("div");
   el.className = "xterm-host";
-  return { term, fit, el, opened: false, started: false };
+  const inst: Instance = { term, fit, el, opened: false, started: false, exited: false, spec, opts };
+  term.onData((data) => {
+    if (inst.exited) {
+      if (data.includes("\r")) {
+        term.reset();
+        start(inst);
+      }
+      return;
+    }
+    void backend?.call("term.write", { id: spec.id, data: textToB64(data) }).catch(() => {});
+  });
+  return inst;
 }
 
 /** Coloca o terminal `spec` dentro de `container`. Devolve a função que o tira de lá. */
 export function mountTerminal(container: HTMLElement, spec: PaneSpec, opts: { fontSize: number; shell: string }): () => void {
   let inst = instances.get(spec.id);
   if (!inst) {
-    inst = create(spec, opts.fontSize);
+    inst = create(spec, opts);
     instances.set(spec.id, inst);
   }
+  inst.spec = spec;
+  inst.opts = opts;
   const i = inst;
   container.appendChild(i.el);
   if (!i.opened) {
@@ -99,28 +153,7 @@ export function mountTerminal(container: HTMLElement, spec: PaneSpec, opts: { fo
   };
   fitNow();
 
-  if (!i.started && backend) {
-    i.started = true;
-    backend
-      .call("term.open", {
-        id: spec.id,
-        cwd: spec.cwd,
-        command: spec.command,
-        shell: opts.shell || undefined,
-        cols: i.term.cols,
-        rows: i.term.rows,
-      })
-      .then((res) => {
-        if (!res.created && res.scrollback) {
-          i.term.reset();
-          i.term.write(b64ToBytes(res.scrollback));
-        }
-      })
-      .catch((e) => {
-        i.started = false;
-        i.term.write(`\x1b[31mNão foi possível abrir o terminal: ${errorMessage(e)}\x1b[0m\r\n`);
-      });
-  }
+  if (!i.started && !i.exited) start(i);
 
   let last = "";
   const ro = new ResizeObserver(() => {
@@ -141,6 +174,15 @@ export function mountTerminal(container: HTMLElement, spec: PaneSpec, opts: { fo
 
 export function focusTerminal(id: string) {
   instances.get(id)?.term.focus();
+}
+
+/** Fecha e descarta um terminal (botão × ou shell que saiu). */
+export function disposeTerminal(id: string) {
+  const inst = instances.get(id);
+  instances.delete(id);
+  inst?.term.dispose();
+  inst?.el.remove();
+  void backend?.call("term.close", { id }).catch(() => {});
 }
 
 /** Fecha e descarta os terminais cujo id começa com `prefix` (ex.: ao arquivar). */

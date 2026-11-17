@@ -47,7 +47,7 @@ const feature = (repos: string[]): Feature => ({
   root: "/h/wt/pay-1",
   workspaceFile: "/h/wt/pay-1.code-workspace",
   repos: repos.map((r) => ({ name: r, clonePath: `/c/${r}`, path: `/h/wt/pay-1/${r}`, base: "origin/main" })),
-  extraTerminals: 0,
+  extraTerms: [],
   createdAt: "",
   archivedAt: null,
 });
@@ -57,6 +57,13 @@ describe("terminais e workspace", () => {
     const p = panesFor(feature(["api"]), ws);
     expect(p.map((x) => x.title)).toEqual(["api · npm run dev", "api · shell"]);
     expect(p[0].command).toBe("npm run dev");
+  });
+
+  it("terminais extras são fecháveis e mantêm o id ao fechar outro", () => {
+    const p = panesFor({ ...feature(["api"]), extraTerms: [0, 2] }, ws);
+    const extras = p.filter((x) => x.closable);
+    expect(extras.map((x) => x.id)).toEqual(["pay-1/api/10", "pay-1/api/12"]);
+    expect(p.filter((x) => !x.closable)).toHaveLength(2);
   });
 
   it("vários repos: um terminal por repo", () => {

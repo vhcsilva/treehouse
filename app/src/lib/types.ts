@@ -49,8 +49,10 @@ export interface Feature {
   /** `.code-workspace` (absoluto) aberto no Kiro. */
   workspaceFile: string;
   repos: FeatureRepo[];
-  /** Terminais extras abertos com “+”. */
-  extraTerminals: number;
+  /** Índices dos terminais extras abertos com “+” (cada um vira o id `<feature>/<repo>/<10+n>`). */
+  extraTerms: number[];
+  /** Formato antigo (só a contagem); convertido em `extraTerms` ao carregar. */
+  extraTerminals?: number;
   createdAt: string;
   archivedAt: string | null;
 }

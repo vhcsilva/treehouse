@@ -44,7 +44,7 @@ function demoFeature(id: string, name: string, jira: string | null, color: strin
       path: `${root}/${r}`,
       base: demoWorkspace.repos.find((x) => x.name === r)!.base,
     })),
-    extraTerminals: 0,
+    extraTerms: [],
     createdAt: new Date().toISOString(),
     archivedAt: null,
   };
@@ -94,6 +94,12 @@ function termOut(id: string, text: string) {
 function runFake(id: string, cmd: string) {
   const t = terms.get(id)!;
   let out = "";
+  if (cmd === "exit") {
+    termOut(id, "logout\r\n");
+    terms.delete(id);
+    emit({ method: "term.exit", params: { id, code: 0 } });
+    return;
+  }
   if (cmd === "pwd") out = t.cwd + "\r\n";
   else if (cmd.startsWith("npm run dev")) out = "\r\n> api@2.4.0 dev\r\n[nest] Listening on \x1b[34mhttp://localhost:3012\x1b[0m\r\n";
   else if (cmd.startsWith("pnpm dev")) out = "\r\n  VITE v6.2.0  ready in 412 ms\r\n  ➜  Local: \x1b[34mhttp://localhost:5112/\x1b[0m\r\n";

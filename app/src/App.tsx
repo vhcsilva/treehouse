@@ -4,7 +4,7 @@ import { ArchiveModal, NewFeatureModal, Palette } from "./components/Modals";
 import { SettingsView, WelcomeView } from "./components/Settings";
 import { OverviewView, WorktreesView } from "./components/Worktrees";
 import { activeFeatures, useStore } from "./store";
-import { bindTerminalEvents } from "./terminals";
+import { bindTerminalEvents, setClosableExitHandler } from "./terminals";
 
 function useShortcuts() {
   useEffect(() => {
@@ -69,6 +69,7 @@ export default function App() {
     void s.init().then(() => {
       const b = useStore.getState().backend;
       if (b) bindTerminalEvents(b);
+      setClosableExitHandler((id) => void useStore.getState().closeTerminal(id));
       document.body.classList.toggle("solid", useStore.getState().settings.effect === "none");
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
