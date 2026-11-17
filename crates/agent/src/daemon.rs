@@ -91,20 +91,35 @@ fn spawn_daemon(socket: &Path) -> anyhow::Result<()> {
 /// Ponte stdio ↔ socket do daemon.
 pub async fn run_connect(socket: &Path) -> anyhow::Result<()> {
     let stream = ensure_daemon(socket).await?;
-    let (mut sr, mut sw) = stream.into_split();
-    let mut stdin = tokio::io::stdin();
-    let mut stdout = tokio::io::stdout();
-    let up = tokio::spawn(async move {
-        let _ = tokio::io::copy(&mut stdin, &mut sw).await;
-    });
-    let down = tokio::spawn(async move {
-        let _ = tokio::io::copy(&mut sr, &mut stdout).await;
-    });
+    let (sr, sw) = stream.into_split();
+    let up = tokio::spawn(pump(tokio::io::stdin(), sw));
+    let down = tokio::spawn(pump(sr, tokio::io::stdout()));
     tokio::select! {
         _ = up => {}
         _ = down => {}
     }
     Ok(())
+}
+
+/// Copia bytes e descarrega a cada leitura. `tokio::io::copy` + stdout com buffer de
+/// linha podia segurar o fim de uma mensagem até a próxima chegar.
+async fn pump<R, W>(mut r: R, mut w: W)
+where
+    R: tokio::io::AsyncRead + Unpin,
+    W: tokio::io::AsyncWrite + Unpin,
+{
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        match r.read(&mut buf).await {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                if w.write_all(&buf[..n]).await.is_err() || w.flush().await.is_err() {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 /// Atende direto no stdio, sem daemon (desenvolvimento e testes).

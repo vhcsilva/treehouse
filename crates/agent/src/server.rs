@@ -53,9 +53,9 @@ where
                 },
                 else => break,
             };
-            if writer.write_all(line.as_bytes()).await.is_err()
-                || writer.write_all(b"\n").await.is_err()
-                || writer.flush().await.is_err()
+            let mut buf = line.into_bytes();
+            buf.push(b'\n');
+            if writer.write_all(&buf).await.is_err() || writer.flush().await.is_err()
             {
                 break;
             }
@@ -72,6 +72,14 @@ where
         // Cada pedido roda em paralelo: um `git fetch` lento não trava o terminal.
         tokio::spawn(async move {
             let resp = match serde_json::from_str::<Request>(&line) {
+                Ok(req) if req.id.is_null() => {
+                    // Notificação: executa e não responde (erros vão para o log).
+                    let method = req.method.clone();
+                    if let Err(e) = dispatch(&state, req).await {
+                        eprintln!("{method}: {e}");
+                    }
+                    return;
+                }
                 Ok(req) => {
                     let id = req.id.clone();
                     match dispatch(&state, req).await {

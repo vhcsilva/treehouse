@@ -213,6 +213,7 @@ export function Palette() {
     { id: "c-term", label: "Novo terminal na feature atual", run: () => void s.addTerminal() },
     { id: "c-archive", label: "Arquivar a feature atual", run: () => s.openModal("archive") },
     { id: "c-overview", label: "Visão geral", run: () => s.setView("overview") },
+    { id: "c-latency", label: "Medir latência com o WSL", run: () => void s.measureLatency() },
     { id: "c-settings", label: "Configurações", hint: "Ctrl ,", run: () => s.setView("settings") },
   ];
   const norm = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();

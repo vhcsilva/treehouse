@@ -3,6 +3,7 @@
 
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { errorMessage, type Backend } from "./lib/backend";
 import type { PaneSpec } from "./lib/naming";
@@ -58,6 +59,17 @@ export function bindTerminalEvents(b: Backend) {
 /** Atalhos do app passam pelo terminal: Ctrl+Shift+<tecla> e Ctrl+1…9. */
 const isAppShortcut = (e: KeyboardEvent) => e.ctrlKey && (e.shiftKey || /^[1-9]$/.test(e.key));
 
+/** Renderização pela GPU (a mesma do VS Code). Sem WebGL, fica o renderizador padrão. */
+function loadGpuRenderer(term: Terminal) {
+  try {
+    const webgl = new WebglAddon();
+    webgl.onContextLoss(() => webgl.dispose());
+    term.loadAddon(webgl);
+  } catch {
+    /* WebGL indisponível */
+  }
+}
+
 function start(i: Instance) {
   if (!backend || i.started) return;
   // Ao reabrir depois de um `exit`, só o shell: o comando do repo não roda de novo sem pedir.
@@ -92,10 +104,10 @@ function create(spec: PaneSpec, opts: { fontSize: number; shell: string }): Inst
     fontSize,
     lineHeight: 1.25,
     cursorBlink: true,
-    allowTransparency: true,
+    // Fundo opaco: transparência no terminal força recompor a tela inteira a cada caractere.
     scrollback: 10000,
     theme: {
-      background: "#00000000",
+      background: "#0A0B10",
       foreground: "#E8E9F0",
       cursor: "#C4B5FD",
       selectionBackground: "#8B5CF655",
@@ -124,7 +136,7 @@ function create(spec: PaneSpec, opts: { fontSize: number; shell: string }): Inst
       }
       return;
     }
-    void backend?.call("term.write", { id: spec.id, data: textToB64(data) }).catch(() => {});
+    backend?.notify("term.write", { id: spec.id, data: textToB64(data) });
   });
   return inst;
 }
@@ -143,6 +155,7 @@ export function mountTerminal(container: HTMLElement, spec: PaneSpec, opts: { fo
   if (!i.opened) {
     i.term.open(i.el);
     i.opened = true;
+    loadGpuRenderer(i.term);
   }
   const fitNow = () => {
     try {
@@ -161,7 +174,7 @@ export function mountTerminal(container: HTMLElement, spec: PaneSpec, opts: { fo
     const key = `${i.term.cols}x${i.term.rows}`;
     if (key !== last && i.started) {
       last = key;
-      void backend?.call("term.resize", { id: spec.id, cols: i.term.cols, rows: i.term.rows }).catch(() => {});
+      backend?.notify("term.resize", { id: spec.id, cols: i.term.cols, rows: i.term.rows });
     }
   });
   ro.observe(container);

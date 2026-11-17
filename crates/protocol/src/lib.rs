@@ -16,6 +16,9 @@ pub const PROTOCOL_VERSION: u32 = 1;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Request {
     pub jsonrpc: String,
+    /// Sem `id` (ou `null`), é uma notificação JSON-RPC: o agente não responde.
+    /// O app usa isso nas teclas do terminal, para não esperar ida e volta.
+    #[serde(default)]
     pub id: Value,
     pub method: String,
     #[serde(default)]

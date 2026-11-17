@@ -103,14 +103,15 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .tree-repo { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 38px; font: 12px var(--mono); color: var(--ink-2); }
 
 /* Terminais */
-.terms { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; background: rgba(8,9,14,0.78); backdrop-filter: blur(var(--blur)); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+/* Sem desfoque atrás do terminal: cada caractere novo obrigaria a GPU a recompor o vidro. */
+.terms { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; background: #0a0b10; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; contain: layout paint; }
 .panes { flex: 1 1 auto; display: flex; min-height: 0; }
 .pane { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.06); }
 .pane:last-child { border-right: 0; }
 .pane-head { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.05); font: 11px var(--mono); }
 .pane-close { color: var(--muted); padding: 0 2px; display: grid; place-items: center; }
 .pane-close:hover { color: var(--ink); }
-.pane-body { flex: 1 1 auto; min-height: 0; padding: 8px 4px 4px 12px; position: relative; }
+.pane-body { flex: 1 1 auto; min-height: 0; padding: 8px 4px 4px 12px; position: relative; contain: strict; }
 .xterm-host { position: absolute; inset: 8px 4px 4px 12px; }
 .xterm .xterm-viewport { background: transparent !important; }
 

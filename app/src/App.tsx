@@ -42,15 +42,23 @@ function useShortcuts() {
   }, []);
 }
 
-/** Atualiza o status do git da feature aberta a cada 5 s (e ao voltar para a janela). */
+/**
+ * Atualiza o status do git da feature aberta a cada 10 s (e ao voltar para a janela).
+ * Nunca sobrepõe: num monorepo grande um `git status` pode levar segundos.
+ */
 function useStatusPolling() {
   const selectedId = useStore((s) => s.selectedId);
   const connected = useStore((s) => s.agent.connected);
   useEffect(() => {
     if (!connected) return;
-    const tick = () => document.visibilityState === "visible" && void useStore.getState().refreshStatus();
+    let running = false;
+    const tick = () => {
+      if (running || document.visibilityState !== "visible") return;
+      running = true;
+      void useStore.getState().refreshStatus().finally(() => (running = false));
+    };
     tick();
-    const t = setInterval(tick, 5000);
+    const t = setInterval(tick, 10000);
     window.addEventListener("focus", tick);
     return () => {
       clearInterval(t);

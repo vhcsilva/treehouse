@@ -204,6 +204,7 @@ export function mockBackend(): Backend {
   return {
     simulated: true,
     call,
+    notify: (method, params) => void call(method, params).catch(() => {}),
     onEvent: (cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);

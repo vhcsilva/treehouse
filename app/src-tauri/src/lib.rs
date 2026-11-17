@@ -33,6 +33,12 @@ async fn agent_call(state: State<'_, AppState>, method: String, params: Value) -
     state.bridge.call(&method, params).await
 }
 
+/// Notificação JSON-RPC (sem resposta). Usada nas teclas do terminal.
+#[tauri::command]
+async fn agent_notify(state: State<'_, AppState>, method: String, params: Value) -> Result<(), RpcError> {
+    state.bridge.notify(&method, params).await
+}
+
 #[tauri::command]
 fn agent_status(state: State<'_, AppState>) -> AgentStatus {
     state.bridge.status()
@@ -119,6 +125,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             agent_call,
+            agent_notify,
             agent_status,
             agent_start,
             list_distros,

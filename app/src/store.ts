@@ -58,6 +58,7 @@ interface State {
   addTerminal(): Promise<void>;
   closeTerminal(paneId: string): Promise<void>;
   refreshStatus(featureId?: string): Promise<void>;
+  measureLatency(): Promise<void>;
 }
 
 let toastSeq = 1;
@@ -304,6 +305,28 @@ export const useStore = create<State>((set, get) => {
       if (!f) return;
       const n = Number(paneId.split("/").pop()) - 10;
       if (f.extraTerms.includes(n)) await putFeature({ ...f, extraTerms: f.extraTerms.filter((x) => x !== n) });
+    },
+
+    async measureLatency() {
+      // Ida e volta completa: interface → Tauri → wsl.exe → agente → e de volta.
+      const times: number[] = [];
+      try {
+        for (let i = 0; i < 20; i++) {
+          const t0 = performance.now();
+          await be().call("agent.version", {});
+          times.push(performance.now() - t0);
+        }
+        times.sort((a, b) => a - b);
+        const avg = times.reduce((a, b) => a + b, 0) / times.length;
+        get().toast(
+          "Latência com o WSL",
+          `média ${avg.toFixed(1)} ms · mediana ${times[10].toFixed(1)} ms · pior ${times[19].toFixed(1)} ms\n` +
+            (avg < 15 ? "A ponte está rápida; o atraso, se houver, é na renderização." : "A ponte está lenta: o atraso vem do caminho Windows ↔ WSL."),
+          avg < 15 ? "ok" : "error",
+        );
+      } catch (e) {
+        get().toast("Não foi possível medir", errorMessage(e), "error");
+      }
     },
 
     async refreshStatus(featureId) {

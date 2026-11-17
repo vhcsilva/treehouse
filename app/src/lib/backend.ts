@@ -14,6 +14,8 @@ export type Collection = "workspaces" | "features" | "settings";
 export interface Backend {
   readonly simulated: boolean;
   call<M extends Method>(method: M, params: Params<M>): Promise<Result<M>>;
+  /** Envia sem esperar resposta (teclas do terminal, redimensionar). */
+  notify<M extends Method>(method: M, params: Params<M>): void;
   onEvent(cb: (n: AgentNotification) => void): () => void;
   onStatus(cb: (s: AgentStatus) => void): () => void;
   start(distro: string | null): Promise<void>;
@@ -44,6 +46,9 @@ async function tauriBackend(): Promise<Backend> {
   return {
     simulated: false,
     call: (method, params) => invoke("agent_call", { method, params }),
+    notify: (method, params) => {
+      void invoke("agent_notify", { method, params }).catch(() => {});
+    },
     onEvent: (cb) => unlistenLater(listen<AgentNotification>("agent-event", (e) => cb(e.payload))),
     onStatus: (cb) => unlistenLater(listen<AgentStatus>("agent-status", (e) => cb(e.payload))),
     start: async (distro) => {

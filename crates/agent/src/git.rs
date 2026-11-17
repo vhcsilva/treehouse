@@ -281,7 +281,7 @@ pub fn parse_worktree_list(out: &str) -> Vec<WorktreeEntry> {
 
 pub fn status(p: &StatusParams) -> Result<RepoStatus> {
     let path = expand(&p.path);
-    let out = git(&path, &["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"])?;
+    let out = git(&path, &["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=normal"])?;
     let mut st = parse_status(&out);
     st.path = path.to_string_lossy().into_owned();
     if let Some(base) = &p.base {

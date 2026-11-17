@@ -180,6 +180,25 @@ impl Bridge {
         }
     }
 
+    /// Envia sem esperar resposta (teclas do terminal, redimensionar).
+    /// Nada de registro pendente nem ida e volta: a tecla segue na hora.
+    pub async fn notify(self: &Arc<Self>, method: &str, params: Value) -> Result<(), RpcError> {
+        if self.conn.lock().await.is_none() {
+            self.connect().await?;
+        }
+        let msg = json!({"jsonrpc": "2.0", "method": method, "params": params}).to_string() + "\n";
+        let mut guard = self.conn.lock().await;
+        let Some(conn) = guard.as_mut() else {
+            return Err(RpcError { code: -32000, message: "agente desconectado".into(), data: None });
+        };
+        conn.stdin
+            .write_all(msg.as_bytes())
+            .await
+            .map_err(|e| RpcError { code: -32000, message: e.to_string(), data: None })?;
+        let _ = conn.stdin.flush().await;
+        Ok(())
+    }
+
     /// Conecta, confere a versão e troca o daemon se ele for de outra versão do app.
     pub async fn handshake(self: &Arc<Self>) -> Result<Value, RpcError> {
         let v = self.call(methods::VERSION, json!({})).await?;

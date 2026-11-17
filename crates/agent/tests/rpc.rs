@@ -40,6 +40,13 @@ impl Client {
         Self { child, stdin, rx, next_id: 1, events: vec![] }
     }
 
+    /// Envia sem `id`: o agente executa e não responde.
+    fn notify(&mut self, method: &str, params: Value) {
+        let msg = json!({"jsonrpc":"2.0","method":method,"params":params});
+        writeln!(self.stdin, "{msg}").unwrap();
+        self.stdin.flush().unwrap();
+    }
+
     fn call(&mut self, method: &str, params: Value) -> Value {
         let id = self.next_id;
         self.next_id += 1;
@@ -197,4 +204,41 @@ fn daemon_keeps_terminals_between_connections() {
         std::thread::sleep(Duration::from_millis(50));
     }
     assert!(!sock.exists(), "o daemon deveria ter removido o socket ao sair");
+}
+
+#[test]
+fn keystroke_echo_is_fast_through_the_daemon() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let sock = tmp.path().join("agent.sock");
+    let state = tmp.path().join("state");
+    let envs = [("TREEHOUSE_SOCKET", sock.to_str().unwrap()), ("XDG_STATE_HOME", state.to_str().unwrap())];
+    let mut c = Client::spawn(&["connect"], &envs);
+    c.call("term.open", json!({"id":"lat","cwd":tmp.path(),"shell":"/bin/sh"}));
+    std::thread::sleep(Duration::from_millis(300));
+    c.events.clear();
+    while c.rx.try_recv().is_ok() {}
+
+    // Cada tecla vai como notificação (sem esperar resposta), como no app.
+    let mut worst = Duration::ZERO;
+    let mut total = Duration::ZERO;
+    for ch in "abcdefghijklmnopqrst".chars() {
+        let t0 = Instant::now();
+        c.notify("term.write", json!({"id":"lat","data":b64(&ch.to_string())}));
+        loop {
+            let v = c.rx.recv_timeout(Duration::from_secs(5)).expect("eco não chegou");
+            assert!(v.get("id").is_none() || v["id"].is_null(), "notificação não deve gerar resposta: {v}");
+            if v["method"] == "term.output" {
+                let bytes = B64.decode(v["params"]["data"].as_str().unwrap()).unwrap();
+                if String::from_utf8_lossy(&bytes).contains(ch) {
+                    break;
+                }
+            }
+        }
+        let dt = t0.elapsed();
+        worst = worst.max(dt);
+        total += dt;
+    }
+    eprintln!("eco: média {:?}, pior {:?}", total / 20, worst);
+    assert!(worst < Duration::from_millis(100), "eco lento: pior {worst:?}");
+    c.call("agent.shutdown", json!({}));
 }
