@@ -1,0 +1,72 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+          components: clippy
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - run: cargo build --release -p treehouse-agent --target x86_64-unknown-linux-musl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: treehouse-agent
+          path: target/x86_64-unknown-linux-musl/release/treehouse-agent
+
+  frontend:
+    runs-on: ubuntu-latest
+    needs: agent
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - run: cargo build -p treehouse-agent --manifest-path ../Cargo.toml
+      - run: pnpm test
+        env:
+          TREEHOUSE_AGENT_BIN: ${{ github.workspace }}/target/debug/treehouse-agent
+      - run: pnpm build
+
+  windows-installer:
+    runs-on: windows-latest
+    needs: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: treehouse-agent
+          path: app/src-tauri/resources/agent
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install
+        working-directory: app
+      - run: pnpm tauri build
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: treehouse-installer
+          path: app/src-tauri/target/release/bundle/nsis/*.exe

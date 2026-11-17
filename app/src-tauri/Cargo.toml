@@ -1,0 +1,26 @@
+[package]
+name = "treehouse-app"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "treehouse_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["process", "io-util", "sync", "time", "macros", "rt-multi-thread"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+anyhow = "1"
+treehouse-protocol = { path = "../../crates/protocol" }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
