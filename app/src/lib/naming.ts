@@ -112,3 +112,15 @@ export function panesFor(feature: Feature, ws: Workspace | undefined): PaneSpec[
   }
   return panes;
 }
+
+/**
+ * Grade para `n` terminais. Prioriza largura (linhas de log são longas):
+ * 1–2 terminais empilhados, 3 ou mais em duas colunas. Com número ímpar,
+ * o último ocupa a linha inteira.
+ */
+export function gridShape(n: number): { cols: number; rows: number; lastSpan: number } {
+  const cols = n <= 2 ? 1 : 2;
+  const rows = Math.max(1, Math.ceil(n / cols));
+  const rem = n % cols;
+  return { cols, rows, lastSpan: rem ? cols - rem + 1 : 1 };
+}

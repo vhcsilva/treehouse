@@ -39,6 +39,11 @@ interface State {
   logs: Record<string, Commit[]>;
   busy: string | null;
   toasts: Toast[];
+  /** Por feature: terminal da aba ativa (layout em abas) e terminal maximizado. */
+  activePane: Record<string, string>;
+  maximizedPane: Record<string, string | null>;
+  setActivePane(featureId: string, paneId: string): void;
+  toggleMaximize(featureId: string, paneId: string): void;
 
   init(): Promise<void>;
   connect(distro?: string | null): Promise<void>;
@@ -99,6 +104,11 @@ export const useStore = create<State>((set, get) => {
     logs: {},
     busy: null,
     toasts: [],
+    activePane: {},
+    maximizedPane: {},
+    setActivePane: (featureId, paneId) => set((s) => ({ activePane: { ...s.activePane, [featureId]: paneId } })),
+    toggleMaximize: (featureId, paneId) =>
+      set((s) => ({ maximizedPane: { ...s.maximizedPane, [featureId]: s.maximizedPane[featureId] === paneId ? null : paneId } })),
 
     async init() {
       const backend = await getBackend();

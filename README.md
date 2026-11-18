@@ -81,6 +81,17 @@ Para desenvolver com recarga automática: `pnpm tauri dev` (também no PowerShel
 3. **Nova feature** (`Ctrl+Shift+N`): nome, card do Jira (opcional), repositórios. A tela mostra
    os comandos `git worktree` que vão rodar antes de você confirmar.
 
+## Terminais
+
+Cada feature abre o comando do repo e um shell; “+” abre mais (até 4 extras). O seletor no
+cabeçalho do painel muda o layout, e a escolha vale para todas as features:
+
+- **Grade** (padrão): até 2 terminais empilhados, a partir de 3 em duas colunas.
+- **Lado a lado**: todos numa linha só.
+- **Abas**: um terminal por vez, ocupando o painel inteiro.
+
+Na grade e lado a lado, o botão ⤢ (ou duplo clique no título) maximiza um terminal até você restaurar.
+
 ## Atalhos
 
 | Ação | Atalho |

@@ -2,6 +2,7 @@
 
 export type KiroStrategy = "remote" | "unc";
 export type WindowEffect = "mica" | "acrylic" | "none";
+export type TerminalLayout = "grid" | "columns" | "tabs";
 
 export interface RepoConfig {
   name: string;
@@ -64,6 +65,7 @@ export interface Settings {
   shell: string;
   fontSize: number;
   updateStrategy: "rebase" | "merge";
+  terminalLayout: TerminalLayout;
   effect: WindowEffect;
   blur: number;
   accent: string;
@@ -76,6 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shell: "",
   fontSize: 13,
   updateStrategy: "rebase",
+  terminalLayout: "grid",
   effect: "mica",
   blur: 20,
   accent: "#8B5CF6",

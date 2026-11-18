@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { errorMessage } from "../lib/backend";
 import { slugify } from "../lib/naming";
-import type { KiroStrategy, RepoConfig, WindowEffect, Workspace } from "../lib/types";
+import type { KiroStrategy, RepoConfig, TerminalLayout, WindowEffect, Workspace } from "../lib/types";
 import { activeWorkspace, useStore, type SettingsTab } from "../store";
 import { setTerminalFontSize } from "../terminals";
 
@@ -227,7 +227,7 @@ export function SettingsView() {
             </section>
             <section className="glass" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
               <span style={{ fontWeight: 600, fontSize: 15 }}>Terminal e git</span>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 14 }}>
                 <label className="fld">
                   Shell (vazio = o seu shell padrão)
                   <input className="inp mono" value={s.settings.shell} placeholder="/bin/zsh" onChange={(e) => void s.saveSettings({ shell: e.target.value })} />
@@ -246,6 +246,14 @@ export function SettingsView() {
                       setTerminalFontSize(v);
                     }}
                   />
+                </label>
+                <label className="fld">
+                  Layout dos terminais
+                  <select className="inp" value={s.settings.terminalLayout} onChange={(e) => void s.saveSettings({ terminalLayout: e.target.value as TerminalLayout })}>
+                    <option value="grid">Grade</option>
+                    <option value="columns">Lado a lado</option>
+                    <option value="tabs">Abas</option>
+                  </select>
                 </label>
                 <label className="fld">
                   Atualizar da base com

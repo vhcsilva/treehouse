@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { branchName, featureSlug, panesFor, relativePath, slugify, workspaceFileContent } from "./naming";
+import { branchName, gridShape, featureSlug, panesFor, relativePath, slugify, workspaceFileContent } from "./naming";
 import type { Feature, Workspace } from "./types";
 
 describe("nomes", () => {
@@ -78,5 +78,15 @@ describe("terminais e workspace", () => {
       { name: "web", path: "pay-1/web" },
     ]);
     expect(json.settings["workbench.colorCustomizations"]["titleBar.activeBackground"]).toBe("#A78BFA");
+  });
+});
+
+describe("grade de terminais", () => {
+  it("empilha até 2, duas colunas a partir de 3, o último ímpar ocupa a linha", () => {
+    expect(gridShape(1)).toEqual({ cols: 1, rows: 1, lastSpan: 1 });
+    expect(gridShape(2)).toEqual({ cols: 1, rows: 2, lastSpan: 1 });
+    expect(gridShape(3)).toEqual({ cols: 2, rows: 2, lastSpan: 2 });
+    expect(gridShape(4)).toEqual({ cols: 2, rows: 2, lastSpan: 1 });
+    expect(gridShape(6)).toEqual({ cols: 2, rows: 3, lastSpan: 1 });
   });
 });

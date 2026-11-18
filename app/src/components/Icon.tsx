@@ -11,6 +11,11 @@ const PATHS = {
   code: "m16 18 6-6-6-6M8 6l-6 6 6 6",
   sync: "M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5",
   close: "M18 6 6 18M6 6l12 12",
+  columns: "M4 4h7v16H4zM13 4h7v16h-7z",
+  gridLayout: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h16v7H4z",
+  tabs: "M3 8h18v12H3zM3 8V5h6v3M11 8V5h6v3",
+  maximize: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
+  restore: "M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7",
   logo: "M6 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM6 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM18 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM6 7v10M18 11c0 4-6 3-12 6",
 } as const;
 

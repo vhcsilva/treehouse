@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef } from "react";
-import { panesFor, type PaneSpec } from "../lib/naming";
-import type { Feature } from "../lib/types";
+import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
+import { gridShape, panesFor, type PaneSpec } from "../lib/naming";
+import type { Feature, TerminalLayout } from "../lib/types";
 import { activeFeatures, activeWorkspace, selectedFeature, useStore } from "../store";
-import { mountTerminal } from "../terminals";
-import { Icon } from "./Icon";
+import { focusTerminal, mountTerminal } from "../terminals";
+import { Icon, type IconName } from "./Icon";
 
 const CHANGE_COLOR: Record<string, string> = { M: "#FCD34D", A: "#6EE7B7", D: "#FCA5A5", R: "#93C5FD", U: "#FCA5A5", "?": "#6EE7B7" };
 
@@ -107,56 +107,150 @@ function FeatureHeader({ f }: { f: Feature }) {
   );
 }
 
-function Pane({ spec }: { spec: PaneSpec }) {
+/** Onde o xterm é montado. Sair da tela não encerra o terminal: só tira o elemento. */
+function TermBody({ spec, autoFocus = false }: { spec: PaneSpec; autoFocus?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const fontSize = useStore((s) => s.settings.fontSize);
   const shell = useStore((s) => s.settings.shell);
   const ready = useStore((s) => s.agent.connected);
-  const closeTerminal = useStore((s) => s.closeTerminal);
   useEffect(() => {
     if (!ref.current || !ready) return;
-    return mountTerminal(ref.current, spec, { fontSize, shell });
+    const unmount = mountTerminal(ref.current, spec, { fontSize, shell });
+    if (autoFocus) requestAnimationFrame(() => focusTerminal(spec.id));
+    return unmount;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spec.id, ready]);
   return (
-    <div className="pane">
-      <div className="pane-head">
+    <div className="pane-body" ref={ref}>
+      {!ready && <p className="hint">Conectando ao WSL…</p>}
+    </div>
+  );
+}
+
+function Pane({ spec, featureId, style, canMaximize }: { spec: PaneSpec; featureId: string; style?: CSSProperties; canMaximize: boolean }) {
+  const closeTerminal = useStore((s) => s.closeTerminal);
+  const toggleMaximize = useStore((s) => s.toggleMaximize);
+  const maximized = useStore((s) => s.maximizedPane[featureId] === spec.id);
+  return (
+    <div className="pane" style={style}>
+      <div className="pane-head" onDoubleClick={() => canMaximize && toggleMaximize(featureId, spec.id)}>
         <span className="dot" style={{ width: 6, height: 6, background: spec.command ? "#6EE7B7" : "#C4B5FD" }} />
-        <span style={{ color: "var(--ink)" }}>{spec.title}</span>
+        <span style={{ color: "var(--ink)", whiteSpace: "nowrap" }}>{spec.title}</span>
         <span style={{ color: "var(--dim)", marginLeft: "auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{spec.cwd.split("/").slice(-2).join("/")}</span>
+        {canMaximize && (
+          <button
+            className="link pane-close"
+            aria-label={maximized ? `Restaurar ${spec.title}` : `Maximizar ${spec.title}`}
+            title={maximized ? "Restaurar (duplo clique no título)" : "Maximizar (duplo clique no título)"}
+            onClick={() => toggleMaximize(featureId, spec.id)}
+          >
+            <Icon name={maximized ? "restore" : "maximize"} size={12} />
+          </button>
+        )}
         {spec.closable && (
           <button className="link pane-close" aria-label={`Fechar ${spec.title}`} title="Fechar terminal" onClick={() => void closeTerminal(spec.id)}>
             <Icon name="close" size={12} />
           </button>
         )}
       </div>
-      <div className="pane-body" ref={ref}>
-        {!ready && <p className="hint">Conectando ao WSL…</p>}
-      </div>
+      <TermBody spec={spec} autoFocus={maximized} />
     </div>
   );
 }
+
+const LAYOUTS: { id: TerminalLayout; label: string; icon: IconName }[] = [
+  { id: "grid", label: "Grade", icon: "gridLayout" },
+  { id: "columns", label: "Lado a lado", icon: "columns" },
+  { id: "tabs", label: "Abas", icon: "tabs" },
+];
 
 function Terminals({ f }: { f: Feature }) {
   const s = useStore();
   const ws = activeWorkspace(s);
   const panes = useMemo(() => panesFor(f, ws), [f, ws]);
+  const layout = s.settings.terminalLayout;
+  const maximizedId = s.maximizedPane[f.id];
+  const maximized = layout !== "tabs" ? panes.find((p) => p.id === maximizedId) : undefined;
+  const active = panes.find((p) => p.id === s.activePane[f.id]) ?? panes[0];
+
+  let body: ReactNode;
+  if (layout === "tabs") {
+    body = (
+      <div className="panes" style={{ flexDirection: "column" }}>
+        <div className="term-tabs" role="tablist">
+          {panes.map((p) => (
+            <div key={p.id} className={`term-tab ${p.id === active?.id ? "on" : ""}`}>
+              <button role="tab" aria-selected={p.id === active?.id} onClick={() => s.setActivePane(f.id, p.id)}>
+                <span className="dot" style={{ width: 6, height: 6, background: p.command ? "#6EE7B7" : "#C4B5FD" }} />
+                {p.title}
+              </button>
+              {p.closable && (
+                <button className="link pane-close" aria-label={`Fechar ${p.title}`} onClick={() => void s.closeTerminal(p.id)}>
+                  <Icon name="close" size={11} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {active && <TermBody key={active.id} spec={active} autoFocus />}
+      </div>
+    );
+  } else if (maximized) {
+    body = (
+      <div className="panes">
+        <Pane key={maximized.id} spec={maximized} featureId={f.id} canMaximize />
+      </div>
+    );
+  } else if (layout === "grid") {
+    const g = gridShape(panes.length);
+    body = (
+      <div className="panes grid" style={{ gridTemplateColumns: `repeat(${g.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${g.rows}, minmax(0, 1fr))` }}>
+        {panes.map((p, i) => (
+          <Pane
+            key={p.id}
+            spec={p}
+            featureId={f.id}
+            canMaximize={panes.length > 1}
+            style={i === panes.length - 1 && g.lastSpan > 1 ? { gridColumn: `span ${g.lastSpan}` } : undefined}
+          />
+        ))}
+      </div>
+    );
+  } else {
+    body = (
+      <div className="panes">
+        {panes.map((p) => (
+          <Pane key={p.id} spec={p} featureId={f.id} canMaximize={panes.length > 1} />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <section className="terms" aria-label="Terminais">
       <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <span className="cap" style={{ padding: "0 6px" }}>TERMINAL</span>
         <span className="mono" style={{ fontSize: 11, color: "var(--dim)" }}>{f.slug}</span>
         <div style={{ flex: "1 1 auto" }} />
-        <span className="hint" style={{ fontSize: 11 }}>os processos continuam rodando ao trocar de feature</span>
-        <button className="link" aria-label="Novo terminal" title="Novo terminal" onClick={() => void s.addTerminal()} style={{ color: "var(--muted)", fontSize: 15 }}>
+        <div role="group" aria-label="Layout dos terminais" className="layout-switch">
+          {LAYOUTS.map((l) => (
+            <button
+              key={l.id}
+              aria-pressed={layout === l.id}
+              aria-label={l.label}
+              title={l.label}
+              className={layout === l.id ? "on" : ""}
+              onClick={() => void s.saveSettings({ terminalLayout: l.id })}
+            >
+              <Icon name={l.icon} size={13} />
+            </button>
+          ))}
+        </div>
+        <button className="link" aria-label="Novo terminal" title="Novo terminal" onClick={() => void s.addTerminal()} style={{ color: "var(--muted)", fontSize: 15, padding: "0 6px" }}>
           +
         </button>
       </div>
-      <div className="panes">
-        {panes.map((p) => (
-          <Pane key={p.id} spec={p} />
-        ))}
-      </div>
+      {body}
     </section>
   );
 }
