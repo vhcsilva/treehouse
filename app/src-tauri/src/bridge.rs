@@ -199,6 +199,13 @@ impl Bridge {
         Ok(())
     }
 
+    /// Pede para o daemon atual sair; a próxima chamada sobe o binário instalado.
+    pub async fn restart_daemon(self: &Arc<Self>) {
+        let _ = self.call(methods::SHUTDOWN, json!({})).await;
+        self.disconnect().await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+
     /// Conecta, confere a versão e troca o daemon se ele for de outra versão do app.
     pub async fn handshake(self: &Arc<Self>) -> Result<Value, RpcError> {
         let v = self.call(methods::VERSION, json!({})).await?;
@@ -206,9 +213,7 @@ impl Bridge {
         let agent_version = v.get("agentVersion").and_then(Value::as_str).unwrap_or("").to_string();
         if protocol != PROTOCOL_VERSION || agent_version != env!("CARGO_PKG_VERSION") {
             // Daemon antigo: pede para sair e reconecta (o `connect` sobe o binário novo).
-            let _ = self.call(methods::SHUTDOWN, json!({})).await;
-            self.disconnect().await;
-            tokio::time::sleep(Duration::from_millis(400)).await;
+            self.restart_daemon().await;
             let v2 = self.call(methods::VERSION, json!({})).await?;
             self.set_status(|s| s.version = v2.get("agentVersion").and_then(Value::as_str).map(String::from));
             return Ok(v2);

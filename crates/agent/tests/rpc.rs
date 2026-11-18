@@ -122,7 +122,7 @@ fn stdio_version_and_terminal() {
     let tmp = tempfile::TempDir::new().unwrap();
     let mut c = Client::spawn(&["serve"], &[]);
     let v = c.call("agent.version", json!({}));
-    assert_eq!(v["protocol"], 1);
+    assert_eq!(v["protocol"], treehouse_protocol::PROTOCOL_VERSION);
 
     let r = c.call(
         "term.open",

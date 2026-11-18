@@ -66,7 +66,7 @@ Windows                                   WSL
    pnpm install
    pnpm tauri build
    ```
-   O instalador sai em `app\src-tauri\target\release\bundle\nsis\Treehouse_0.1.0_x64-setup.exe`.
+   O instalador sai em `app\src-tauri\target\release\bundle\nsis\Treehouse_0.2.0_x64-setup.exe`.
 
 Para desenvolver com recarga automática: `pnpm tauri dev` (também no PowerShell).
 

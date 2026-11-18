@@ -114,7 +114,7 @@ async function call<M extends Method>(method: M, p: Params<M>): Promise<Result<M
   const r = (v: unknown) => v as Result<M>;
   switch (method) {
     case "agent.version":
-      return r({ agentVersion: "0.1.0", protocol: 1, pid: 4242 });
+      return r({ agentVersion: "0.2.0", protocol: 2, pid: 4242 });
     case "fs.expand":
       return r(String(params.path).replace(/^~/, HOME));
     case "workspace.scan":
@@ -200,7 +200,7 @@ async function call<M extends Method>(method: M, p: Params<M>): Promise<Result<M
 }
 
 export function mockBackend(): Backend {
-  const status: AgentStatus = { connected: true, distro: "Ubuntu-24.04", version: "0.1.0 (simulado)", error: null };
+  const status: AgentStatus = { connected: true, distro: "Ubuntu-24.04", version: "0.2.0 (simulado)", error: null };
   return {
     simulated: true,
     call,

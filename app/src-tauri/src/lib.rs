@@ -50,20 +50,19 @@ async fn agent_start(app: tauri::AppHandle, state: State<'_, AppState>, distro: 
     let bridge = state.bridge.clone();
     bridge.set_distro(distro.clone()).await;
     if cfg!(windows) {
-        let want = format!("treehouse-agent {}", env!("CARGO_PKG_VERSION"));
-        let have = wsl::installed_agent_version(distro.as_deref()).await;
-        if !have.as_deref().unwrap_or("").starts_with(&want) {
-            let bundled = app
-                .path()
-                .resolve("resources/agent/treehouse-agent", tauri::path::BaseDirectory::Resource)
-                .map_err(err)?;
-            if !bundled.exists() {
-                return Err(format!(
-                    "o binário do agente não veio no instalador ({}). Veja o README.",
-                    bundled.display()
-                ));
-            }
-            wsl::install_agent(distro.as_deref(), &bundled).await.map_err(err)?;
+        let bundled = app
+            .path()
+            .resolve("resources/agent/treehouse-agent", tauri::path::BaseDirectory::Resource)
+            .map_err(err)?;
+        if !bundled.exists() {
+            return Err(format!(
+                "o binário do agente não veio no instalador ({}). Veja o README.",
+                bundled.display()
+            ));
+        }
+        if wsl::sync_agent(distro.as_deref(), &bundled).await.map_err(err)? {
+            // Binário novo instalado: o daemon que está rodando ainda é o antigo.
+            bridge.restart_daemon().await;
         }
     }
     bridge.handshake().await.map_err(|e| e.message)

@@ -83,39 +83,60 @@ fn wsl_exec(distro: Option<&str>) -> Command {
     cmd
 }
 
-/// Versão do agente instalado no WSL, se houver.
-pub async fn installed_agent_version(distro: Option<&str>) -> Option<String> {
-    if !cfg!(windows) {
-        return None;
-    }
-    let out = wsl_exec(distro)
-        .args(["sh", "-c", &format!("\"$HOME/{AGENT_REL_PATH}\" version")])
-        .output()
-        .await
-        .ok()?;
-    out.status.success().then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
-}
-
-/// Copia o binário empacotado com o app para dentro do WSL.
-/// Copia para um arquivo novo e renomeia: funciona mesmo com o daemon antigo rodando.
-pub async fn install_agent(distro: Option<&str>, bundled: &Path) -> anyhow::Result<()> {
+/// Garante que o agente instalado no WSL é idêntico ao que veio com o app.
+/// Compara o conteúdo do arquivo (não só o número de versão) e copia se for diferente.
+/// Devolve `true` quando instalou um binário novo (o daemon antigo precisa ser reiniciado).
+pub async fn sync_agent(distro: Option<&str>, bundled: &Path) -> anyhow::Result<bool> {
     let win_path = bundled.to_string_lossy().to_string();
     let out = wsl_exec(distro).args(["wslpath", "-u", &win_path]).output().await?;
     anyhow::ensure!(out.status.success(), "wslpath falhou: {}", decode_wsl_output(&out.stderr));
     let linux_path = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    let script = format!(
-        "set -e; d=\"$HOME/{dir}\"; mkdir -p \"$d\"; cp \"$1\" \"$d/treehouse-agent.new\"; \
-         chmod +x \"$d/treehouse-agent.new\"; mv -f \"$d/treehouse-agent.new\" \"$d/treehouse-agent\"",
-        dir = AGENT_REL_PATH.trim_end_matches("/treehouse-agent")
-    );
-    let out = wsl_exec(distro).args(["sh", "-c", &script, "sh", &linux_path]).output().await?;
+    let out = wsl_exec(distro).args(["sh", "-c", &sync_script(), "sh", &linux_path]).output().await?;
     anyhow::ensure!(out.status.success(), "falha ao instalar o agente: {}", decode_wsl_output(&out.stderr));
-    Ok(())
+    Ok(String::from_utf8_lossy(&out.stdout).contains("installed"))
+}
+
+/// `cksum` vem no coreutils de qualquer distro. Copia para um arquivo novo e renomeia:
+/// funciona mesmo com o daemon antigo rodando.
+fn sync_script() -> String {
+    format!(
+        "set -e; d=\"$HOME/{dir}\"; mkdir -p \"$d\"; \
+         if [ -f \"$d/treehouse-agent\" ] && [ \"$(cksum < \"$1\")\" = \"$(cksum < \"$d/treehouse-agent\")\" ]; then \
+           echo same; exit 0; fi; \
+         cp \"$1\" \"$d/treehouse-agent.new\"; chmod +x \"$d/treehouse-agent.new\"; \
+         mv -f \"$d/treehouse-agent.new\" \"$d/treehouse-agent\"; echo installed",
+        dir = AGENT_REL_PATH.trim_end_matches("/treehouse-agent")
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sync_script_installs_only_when_different() {
+        let tmp = std::env::temp_dir().join(format!("th-sync-{}", std::process::id()));
+        let home = tmp.join("home");
+        std::fs::create_dir_all(&home).unwrap();
+        let bin = tmp.join("agent-v1");
+        std::fs::write(&bin, b"v1").unwrap();
+        let run = |src: &Path| {
+            let out = std::process::Command::new("sh")
+                .args(["-c", &sync_script(), "sh", src.to_str().unwrap()])
+                .env("HOME", &home)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+            String::from_utf8_lossy(&out.stdout).trim().to_string()
+        };
+        assert_eq!(run(&bin), "installed");
+        assert_eq!(run(&bin), "same");
+        let v2 = tmp.join("agent-v2");
+        std::fs::write(&v2, b"v2").unwrap();
+        assert_eq!(run(&v2), "installed");
+        assert_eq!(std::fs::read(home.join(AGENT_REL_PATH)).unwrap(), b"v2");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 
     #[test]
     fn decodes_utf16_distro_list() {

@@ -1,6 +1,6 @@
 // Espelho de crates/protocol/src/lib.rs. Mantenha os dois em sincronia.
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 export interface RpcError {
   code: number;
