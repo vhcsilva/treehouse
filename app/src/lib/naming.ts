@@ -18,10 +18,10 @@ export function featureSlug(name: string, jiraKey: string | null): string {
   return slugify(jiraKey || name) || "feature";
 }
 
-/** Aplica o padrão de nome de branch, ex.: `feature/{jira}-{slug}`. */
-export function branchName(pattern: string, name: string, jiraKey: string | null): string {
+/** Aplica o padrão de nome de branch, ex.: `feature/{jira}-{slug}` ou `feat/{repo}-{slug}`. */
+export function branchName(pattern: string, name: string, jiraKey: string | null, repo = ""): string {
   const slug = slugify(name);
-  let b = pattern.replace("{jira}", jiraKey ?? "").replace("{slug}", slug);
+  let b = pattern.replaceAll("{jira}", jiraKey ?? "").replaceAll("{slug}", slug).replaceAll("{repo}", repo);
   // Sem chave do Jira, `feature/{jira}-{slug}` viraria `feature/-slug`.
   b = b.replace(/\/-+/g, "/").replace(/-{2,}/g, "-").replace(/-+$/g, "");
   return b || `feature/${slug}`;
@@ -123,4 +123,15 @@ export function gridShape(n: number): { cols: number; rows: number; lastSpan: nu
   const rows = Math.max(1, Math.ceil(n / cols));
   const rem = n % cols;
   return { cols, rows, lastSpan: rem ? cols - rem + 1 : 1 };
+}
+
+/** Padrão efetivo de um repo: o dele, ou o do workspace. */
+export function repoPattern(ws: Workspace, repo: string): string {
+  return ws.repos.find((r) => r.name === repo)?.branchPattern?.trim() || ws.branchPattern;
+}
+
+/** Texto curto para as branches da feature: uma só, ou a primeira + quantas outras. */
+export function branchesLabel(f: Pick<Feature, "branch" | "repos">): string {
+  const unique = [...new Set(f.repos.map((r) => r.branch || f.branch))];
+  return unique.length <= 1 ? unique[0] ?? f.branch : `${unique[0]} +${unique.length - 1}`;
 }

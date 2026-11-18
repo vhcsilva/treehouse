@@ -1,3 +1,4 @@
+import { branchesLabel } from "../lib/naming";
 import { activeFeatures, activeWorkspace, selectedFeature, useStore, type View } from "../store";
 import { Icon, type IconName } from "./Icon";
 
@@ -6,7 +7,7 @@ export function TitleBar() {
   const ws = activeWorkspace(s);
   const f = selectedFeature(s);
   const crumb: Record<View, string> = {
-    wt: f?.branch ?? "nenhuma feature",
+    wt: f ? branchesLabel(f) : "nenhuma feature",
     overview: "visão geral",
     settings: "configurações",
     welcome: "",
@@ -95,7 +96,7 @@ export function StatusBar() {
     <footer className="glass statusbar">
       {f ? (
         <>
-          <span style={{ color: "#c4b5fd" }}>⎇ {f.branch}</span>
+          <span style={{ color: "#c4b5fd" }} title={f.repos.map((r) => `${r.name}: ${r.branch}`).join("\n")}>⎇ {branchesLabel(f)}</span>
           <span>
             ↑{ahead} ↓{behind}
           </span>

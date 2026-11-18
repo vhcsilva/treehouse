@@ -90,7 +90,7 @@ function WorkspaceForm({ initial, submitLabel, onSaved }: { initial: Workspace; 
           <input className="inp mono" value={ws.worktreesDir} onChange={(e) => set({ worktreesDir: e.target.value })} />
         </label>
         <label className="fld">
-          Padrão de nome da branch
+          Padrão de branch (vale para os repos sem padrão próprio)
           <input className="inp mono" value={ws.branchPattern} onChange={(e) => set({ branchPattern: e.target.value })} />
         </label>
         <label className="fld">
@@ -99,13 +99,17 @@ function WorkspaceForm({ initial, submitLabel, onSaved }: { initial: Workspace; 
         </label>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <span className="hint">Repositórios do workspace. A branch base usada para criar e atualizar pode ser diferente em cada um.</span>
+        <span className="hint">
+          Repositórios do workspace. Padrão de branch e base podem ser diferentes em cada um; no padrão, use {"{jira}"}, {"{slug}"} e{" "}
+          {"{repo}"}. Vazio = o padrão do workspace.
+        </span>
         <div style={{ overflowX: "auto", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10 }}>
-          <div style={{ minWidth: 720 }}>
+          <div style={{ minWidth: 860 }}>
             <div className="table-row" style={{ borderTop: 0, background: "rgba(255,255,255,0.03)" }}>
               <span className="cap">INCLUIR</span>
               <span className="cap">REPO</span>
               <span className="cap">REMOTO</span>
+              <span className="cap">PADRÃO DE BRANCH</span>
               <span className="cap">BRANCH BASE</span>
               <span className="cap">COMANDO AO ABRIR</span>
             </div>
@@ -116,6 +120,14 @@ function WorkspaceForm({ initial, submitLabel, onSaved }: { initial: Workspace; 
                 <span className="mono" style={{ fontSize: 11.5, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.remote ?? r.path}>
                   {r.remote ?? r.path}
                 </span>
+                <input
+                  className="inp mono"
+                  aria-label={`Padrão de branch de ${r.name}`}
+                  value={r.branchPattern ?? ""}
+                  placeholder={ws.branchPattern}
+                  onChange={(e) => setRepo(r.name, { branchPattern: e.target.value })}
+                  style={{ padding: "6px 8px" }}
+                />
                 <input className="inp mono" aria-label={`Branch base de ${r.name}`} value={r.base} onChange={(e) => setRepo(r.name, { base: e.target.value })} style={{ padding: "6px 8px" }} />
                 <input className="inp mono" aria-label={`Comando ao abrir ${r.name}`} value={r.command} placeholder="nenhum" onChange={(e) => setRepo(r.name, { command: e.target.value })} style={{ padding: "6px 8px" }} />
               </div>

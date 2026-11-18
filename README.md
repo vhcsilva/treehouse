@@ -78,8 +78,13 @@ Para desenvolver com recarga automática: `pnpm tauri dev` (também no PowerShel
 1. Escolha a distro, aponte a pasta dos projetos (ex.: `~/code/pagamentos`) e clique em **Escanear**.
 2. Ajuste a **branch base** de cada repositório (ex.: `origin/develop` no api, `origin/main` no web)
    e, se quiser, o **comando ao abrir** (ex.: `npm run dev`). Clique em **Começar**.
-3. **Nova feature** (`Ctrl+Shift+N`): nome, card do Jira (opcional), repositórios. A tela mostra
-   os comandos `git worktree` que vão rodar antes de você confirmar.
+3. Se os repositórios usam escopos diferentes de conventional commits, defina um **padrão de
+   branch por repositório** em *Configurações → Workspaces*. Placeholders: `{jira}`, `{slug}` e
+   `{repo}`. Ex.: `feat/{repo}-{jira}-{slug}` no api e `feature/{repo}/{jira}-{slug}` no web.
+   Repositório sem padrão próprio usa o do workspace.
+4. **Nova feature** (`Ctrl+Shift+N`): nome, card do Jira (opcional), repositórios. Cada
+   repositório ganha uma linha com a sua branch (já preenchida pelo padrão, editável) e a sua
+   base. A tela mostra os comandos `git worktree` que vão rodar antes de você confirmar.
 
 ## Terminais
 

@@ -158,6 +158,10 @@ pub struct RepoSpec {
     pub clone_path: String,
     /// Ponto de partida: `origin/develop`, uma tag ou um commit.
     pub base: String,
+    /// Branch deste repositório. Sem ela, usa a `branch` geral do pedido.
+    /// Cada repo pode ter a sua (ex.: escopos diferentes de conventional commits).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,6 +169,8 @@ pub struct RepoSpec {
 pub struct CreateFeatureParams {
     /// Pasta da feature, ex.: `~/wt/pagamentos/pay-412`.
     pub root: String,
+    /// Branch padrão; cada repo pode sobrescrever com `RepoSpec::branch`.
+    #[serde(default)]
     pub branch: String,
     pub repos: Vec<RepoSpec>,
     /// Rodar `git fetch origin` antes de criar (padrão: sim).
@@ -176,6 +182,7 @@ pub struct CreateFeatureParams {
 #[serde(rename_all = "camelCase")]
 pub struct AddRepoParams {
     pub root: String,
+    #[serde(default)]
     pub branch: String,
     pub repo: RepoSpec,
     #[serde(default = "default_true")]

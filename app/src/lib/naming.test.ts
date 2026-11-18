@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { branchName, gridShape, featureSlug, panesFor, relativePath, slugify, workspaceFileContent } from "./naming";
+import { branchName, branchesLabel, gridShape, repoPattern, featureSlug, panesFor, relativePath, slugify, workspaceFileContent } from "./naming";
 import type { Feature, Workspace } from "./types";
 
 describe("nomes", () => {
@@ -13,6 +13,8 @@ describe("nomes", () => {
     expect(branchName("feature/{jira}-{slug}", "Checkout com Pix", "PAY-412")).toBe("feature/PAY-412-checkout-com-pix");
     expect(branchName("feature/{jira}-{slug}", "Timeout no login", null)).toBe("feature/timeout-no-login");
     expect(branchName("{slug}", "Algo", null)).toBe("algo");
+    expect(branchName("feat/{repo}-{jira}-{slug}", "Pix", "PAY-1", "api")).toBe("feat/api-PAY-1-pix");
+    expect(branchName("feature/{repo}/{slug}", "Pix", null, "web")).toBe("feature/web/pix");
   });
 
   it("caminhos relativos", () => {
@@ -46,7 +48,7 @@ const feature = (repos: string[]): Feature => ({
   jiraKey: null,
   root: "/h/wt/pay-1",
   workspaceFile: "/h/wt/pay-1.code-workspace",
-  repos: repos.map((r) => ({ name: r, clonePath: `/c/${r}`, path: `/h/wt/pay-1/${r}`, base: "origin/main" })),
+  repos: repos.map((r) => ({ name: r, clonePath: `/c/${r}`, path: `/h/wt/pay-1/${r}`, base: "origin/main", branch: `feat/${r}-pay-1` })),
   extraTerms: [],
   createdAt: "",
   archivedAt: null,
@@ -88,5 +90,18 @@ describe("grade de terminais", () => {
     expect(gridShape(3)).toEqual({ cols: 2, rows: 2, lastSpan: 2 });
     expect(gridShape(4)).toEqual({ cols: 2, rows: 2, lastSpan: 1 });
     expect(gridShape(6)).toEqual({ cols: 2, rows: 3, lastSpan: 1 });
+  });
+});
+
+describe("branch por repositório", () => {
+  it("usa o padrão do repo quando houver", () => {
+    const w = { ...ws, repos: [{ ...ws.repos[0], branchPattern: "feat/{repo}-{slug}" }, ws.repos[1]] };
+    expect(repoPattern(w, "api")).toBe("feat/{repo}-{slug}");
+    expect(repoPattern(w, "web")).toBe("feature/{jira}-{slug}");
+  });
+
+  it("resume as branches da feature", () => {
+    expect(branchesLabel(feature(["api"]))).toBe("feat/api-pay-1");
+    expect(branchesLabel(feature(["api", "web"]))).toBe("feat/api-pay-1 +1");
   });
 });

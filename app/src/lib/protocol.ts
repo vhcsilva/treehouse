@@ -32,6 +32,8 @@ export interface RepoSpec {
   name: string;
   clonePath: string;
   base: string;
+  /** Branch deste repo (sobrescreve a `branch` geral do pedido). */
+  branch?: string;
 }
 
 export interface CreatedWorktree {
@@ -98,7 +100,7 @@ export interface TermInfo {
 export interface AgentMethods {
   "agent.version": [Record<string, never>, VersionInfo];
   "workspace.scan": [{ dir: string }, ScannedRepo[]];
-  "feature.create": [{ root: string; branch: string; repos: RepoSpec[]; fetch?: boolean }, CreatedWorktree[]];
+  "feature.create": [{ root: string; branch?: string; repos: RepoSpec[]; fetch?: boolean }, CreatedWorktree[]];
   "feature.addRepo": [{ root: string; branch: string; repo: RepoSpec; fetch?: boolean }, CreatedWorktree];
   "feature.archive": [
     { root: string; repos: ArchiveRepo[]; deleteBranch: boolean; force: boolean; workspaceFile?: string },

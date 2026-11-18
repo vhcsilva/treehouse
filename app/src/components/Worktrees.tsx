@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
-import { gridShape, panesFor, type PaneSpec } from "../lib/naming";
+import { branchesLabel, gridShape, panesFor, type PaneSpec } from "../lib/naming";
 import type { Feature, TerminalLayout } from "../lib/types";
 import { activeFeatures, activeWorkspace, selectedFeature, useStore } from "../store";
 import { focusTerminal, mountTerminal } from "../terminals";
@@ -79,7 +79,15 @@ function FeatureHeader({ f }: { f: Feature }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
         <h1 style={{ margin: 0, fontSize: 19, letterSpacing: "-0.01em" }}>{f.name}</h1>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          <span className="chip" style={{ color: "var(--ink)" }}>⎇ {f.branch}</span>
+          {new Set(f.repos.map((r) => r.branch)).size <= 1 ? (
+            <span className="chip" style={{ color: "var(--ink)" }}>⎇ {f.repos[0].branch || f.branch}</span>
+          ) : (
+            f.repos.map((r) => (
+              <span key={r.name} className="chip" style={{ color: "var(--ink)" }}>
+                ⎇ <span style={{ color: "var(--muted)" }}>{r.name}:</span> {r.branch}
+              </span>
+            ))
+          )}
           {[...new Set(f.repos.map((r) => r.base))].map((b) => (
             <span key={b} className="chip">base {b}</span>
           ))}
@@ -376,7 +384,7 @@ export function OverviewView() {
                 </span>
               </div>
               <h2 style={{ margin: 0, fontSize: 17 }}>{f.name}</h2>
-              <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{f.branch}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }} title={f.repos.map((r) => `${r.name}: ${r.branch}`).join("\n")}>{branchesLabel(f)}</span>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {f.repos.map((r) => (
                   <span key={r.name} className="chip">{r.name}</span>

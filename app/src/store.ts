@@ -19,8 +19,8 @@ export interface Toast {
 export interface NewFeatureInput {
   name: string;
   jiraKey: string | null;
-  branch: string;
-  repos: { name: string; base: string }[];
+  /** Cada repo com a sua branch e a sua base. */
+  repos: { name: string; base: string; branch: string }[];
   openKiro: boolean;
 }
 
@@ -120,6 +120,8 @@ export const useStore = create<State>((set, get) => {
       ]);
       const features = rawFeatures.map((f) => ({
         ...f,
+        // Features criadas antes da branch por repo: todas usavam a mesma.
+        repos: f.repos.map((r) => ({ ...r, branch: r.branch || f.branch })),
         extraTerms: f.extraTerms ?? Array.from({ length: f.extraTerminals ?? 0 }, (_, i) => i),
       }));
       const settings = { ...DEFAULT_SETTINGS, ...(settingsDocs[0] ?? {}) };
@@ -188,8 +190,12 @@ export const useStore = create<State>((set, get) => {
         const root = joinPath(wtDir, slug);
         const created = await be().call("feature.create", {
           root,
-          branch: input.branch,
-          repos: input.repos.map((r) => ({ name: r.name, base: r.base, clonePath: ws.repos.find((x) => x.name === r.name)!.path })),
+          repos: input.repos.map((r) => ({
+            name: r.name,
+            base: r.base,
+            branch: r.branch,
+            clonePath: ws.repos.find((x) => x.name === r.name)!.path,
+          })),
         });
         const feature: Feature = {
           id: slug,
@@ -197,7 +203,7 @@ export const useStore = create<State>((set, get) => {
           name: input.name,
           slug,
           color: nextColor(activeFeatures(get()).map((f) => f.color)),
-          branch: input.branch,
+          branch: created[0].branch,
           jiraKey: input.jiraKey,
           root,
           workspaceFile: `${root}.code-workspace`,
@@ -205,6 +211,7 @@ export const useStore = create<State>((set, get) => {
             name: c.repo,
             path: c.path,
             base: c.base,
+            branch: c.branch,
             clonePath: ws.repos.find((x) => x.name === c.repo)!.path,
           })),
           extraTerms: [],
@@ -238,7 +245,7 @@ export const useStore = create<State>((set, get) => {
       try {
         const res = await be().call("feature.archive", {
           root: f.root,
-          repos: f.repos.map((r) => ({ clonePath: r.clonePath, path: r.path, branch: f.branch })),
+          repos: f.repos.map((r) => ({ clonePath: r.clonePath, path: r.path, branch: r.branch || f.branch })),
           deleteBranch,
           force,
           workspaceFile: f.workspaceFile,

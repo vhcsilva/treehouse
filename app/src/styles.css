@@ -148,8 +148,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .card .halo { position: absolute; top: -60px; right: -60px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, rgba(139,92,246,0.32), rgba(0,0,0,0) 70%); pointer-events: none; }
 .repo-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; font-size: 13px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: var(--ink-2); }
 .repo-toggle.on { background: rgba(139,92,246,0.18); border-color: rgba(167,139,250,0.45); color: #f3f1ff; }
+.new-repo-row { display: grid; grid-template-columns: 90px minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; align-items: center; }
 .preview { margin: 0; padding: 12px; background: rgba(6,7,11,0.65); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; font: 11.5px/1.6 var(--mono); color: var(--ink-2); white-space: pre-wrap; word-break: break-all; }
-.table-row { display: grid; grid-template-columns: 64px 90px minmax(0,1fr) 190px 170px; gap: 12px; align-items: center; padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.06); }
+.table-row { display: grid; grid-template-columns: 56px 80px minmax(0,1fr) 220px 160px 150px; gap: 12px; align-items: center; padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.06); }
 .busy { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(4,5,9,0.35); }
 .spinner { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); border-top-color: #c4b5fd; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

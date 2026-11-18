@@ -13,6 +13,8 @@ export interface RepoConfig {
   base: string;
   /** Comando que roda no primeiro terminal do repo, ex.: `npm run dev`. */
   command: string;
+  /** Padrão de branch só deste repo (vazio = o do workspace). Ex.: `feat/{repo}-{jira}-{slug}`. */
+  branchPattern?: string;
   enabled: boolean;
 }
 
@@ -35,6 +37,8 @@ export interface FeatureRepo {
   /** Caminho absoluto da worktree. */
   path: string;
   base: string;
+  /** Branch da worktree neste repo (cada repo pode ter a sua). */
+  branch: string;
 }
 
 export interface Feature {
@@ -43,6 +47,7 @@ export interface Feature {
   name: string;
   slug: string;
   color: string;
+  /** Branch do primeiro repo; a de cada repo está em `repos[].branch`. */
   branch: string;
   jiraKey: string | null;
   /** Pasta da feature (absoluta), contém uma subpasta por repo. */

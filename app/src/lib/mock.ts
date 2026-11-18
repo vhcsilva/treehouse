@@ -43,6 +43,7 @@ function demoFeature(id: string, name: string, jira: string | null, color: strin
       clonePath: `${HOME}/code/pagamentos/${r}`,
       path: `${root}/${r}`,
       base: demoWorkspace.repos.find((x) => x.name === r)!.base,
+      branch: `feature/${jira ? jira + "-" : ""}${id}`,
     })),
     extraTerms: [],
     createdAt: new Date().toISOString(),
@@ -127,7 +128,7 @@ async function call<M extends Method>(method: M, p: Params<M>): Promise<Result<M
         params.repos.map((x: any) => ({
           repo: x.name,
           path: `${params.root}/${x.name}`,
-          branch: params.branch,
+          branch: x.branch ?? params.branch,
           base: x.base,
           reusedBranch: false,
         })),

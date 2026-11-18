@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { branchName, featureSlug, joinPath } from "../lib/naming";
+import { branchName, branchesLabel, featureSlug, joinPath, repoPattern } from "../lib/naming";
 import { activeFeatures, activeWorkspace, selectedFeature, useStore } from "../store";
 import { Icon } from "./Icon";
 
@@ -19,8 +19,8 @@ export function NewFeatureModal() {
   const repos = ws?.repos.filter((r) => r.enabled) ?? [];
   const [name, setName] = useState("");
   const [jira, setJira] = useState("");
-  const [branch, setBranch] = useState("");
-  const [branchEdited, setBranchEdited] = useState(false);
+  /** Branches editadas à mão (as outras seguem o padrão de cada repo). */
+  const [branchEdits, setBranchEdits] = useState<Record<string, string>>({});
   const [chosen, setChosen] = useState<Record<string, boolean>>(() => (repos[0] ? { [repos[0].name]: true } : {}));
   const [bases, setBases] = useState<Record<string, string>>(() => Object.fromEntries(repos.map((r) => [r.name, r.base])));
   const [openKiro, setOpenKiro] = useState(true);
@@ -28,9 +28,9 @@ export function NewFeatureModal() {
   useEffect(() => nameRef.current?.focus(), []);
 
   const jiraKey = jira.trim().toUpperCase() || null;
-  const autoBranch = ws ? branchName(ws.branchPattern, name || "nova-feature", jiraKey) : "";
-  const finalBranch = branchEdited ? branch : autoBranch;
   const selected = repos.filter((r) => chosen[r.name]);
+  const branchOf = (repo: string) =>
+    branchEdits[repo] ?? (ws ? branchName(repoPattern(ws, repo), name || "nova-feature", jiraKey, repo) : "");
   const slug = featureSlug(name, jiraKey);
   const root = ws ? joinPath(ws.worktreesDir, slug) : "";
   const preview = useMemo(
@@ -38,19 +38,19 @@ export function NewFeatureModal() {
       selected.length === 0
         ? "# escolha ao menos um repositório"
         : selected
-            .map((r) => `git -C ${r.path} worktree add ${joinPath(root, r.name)} -b ${finalBranch} ${bases[r.name] ?? r.base}`)
+            .map((r) => `git -C ${r.path} worktree add ${joinPath(root, r.name)} -b ${branchOf(r.name)} ${bases[r.name] ?? r.base}`)
             .join("\n") + `\n${openKiro ? `kiro ${root}.code-workspace` : ""}`,
-    [selected, root, finalBranch, bases, openKiro],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected, root, bases, openKiro, branchEdits, name, jiraKey],
   );
-  const valid = name.trim().length > 0 && selected.length > 0 && finalBranch.length > 0;
+  const valid = name.trim().length > 0 && selected.length > 0 && selected.every((r) => branchOf(r.name).trim().length > 0);
 
   const submit = async () => {
     if (!valid) return;
     await s.createFeature({
       name: name.trim(),
       jiraKey,
-      branch: finalBranch,
-      repos: selected.map((r) => ({ name: r.name, base: bases[r.name] ?? r.base })),
+      repos: selected.map((r) => ({ name: r.name, base: bases[r.name] ?? r.base, branch: branchOf(r.name).trim() })),
       openKiro,
     });
   };
@@ -61,7 +61,7 @@ export function NewFeatureModal() {
         role="dialog"
         aria-label="Nova feature"
         className="modal"
-        style={{ width: "100%", maxWidth: 640, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}
+        style={{ width: "100%", maxWidth: 720, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -83,17 +83,6 @@ export function NewFeatureModal() {
             <input className="inp mono" value={jira} onChange={(e) => setJira(e.target.value)} placeholder="PAY-412" />
           </label>
         </div>
-        <label className="fld">
-          Branch
-          <input
-            className="inp mono"
-            value={finalBranch}
-            onChange={(e) => {
-              setBranch(e.target.value);
-              setBranchEdited(true);
-            }}
-          />
-        </label>
         <div className="fld">
           Repositórios
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -110,16 +99,52 @@ export function NewFeatureModal() {
               </button>
             ))}
           </div>
-          <span className="hint">Normalmente um só. Marque mais de um quando a feature atravessar repositórios.</span>
         </div>
         {selected.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(selected.length, 3)}, minmax(0,1fr))`, gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="new-repo-row" style={{ paddingBottom: 0 }}>
+              <span className="cap">REPO</span>
+              <span className="cap">BRANCH</span>
+              <span className="cap">A PARTIR DE</span>
+            </div>
             {selected.map((r) => (
-              <label key={r.name} className="fld">
-                Criar {r.name} a partir de
-                <input className="inp mono" value={bases[r.name] ?? r.base} onChange={(e) => setBases((b) => ({ ...b, [r.name]: e.target.value }))} />
-              </label>
+              <div key={r.name} className="new-repo-row">
+                <span style={{ fontWeight: 600 }}>{r.name}</span>
+                <div style={{ display: "flex", gap: 6, minWidth: 0 }}>
+                  <input
+                    className="inp mono"
+                    aria-label={`Branch de ${r.name}`}
+                    style={{ flex: "1 1 auto" }}
+                    value={branchOf(r.name)}
+                    onChange={(e) => setBranchEdits((b) => ({ ...b, [r.name]: e.target.value }))}
+                  />
+                  {branchEdits[r.name] !== undefined && (
+                    <button
+                      type="button"
+                      className="link"
+                      title="Voltar ao padrão do repositório"
+                      onClick={() =>
+                        setBranchEdits((b) => {
+                          const { [r.name]: _, ...rest } = b;
+                          return rest;
+                        })
+                      }
+                    >
+                      padrão
+                    </button>
+                  )}
+                </div>
+                <input
+                  className="inp mono"
+                  aria-label={`Base de ${r.name}`}
+                  value={bases[r.name] ?? r.base}
+                  onChange={(e) => setBases((b) => ({ ...b, [r.name]: e.target.value }))}
+                />
+              </div>
             ))}
+            <span className="hint">
+              Cada repositório usa o padrão de branch dele (Configurações → Workspaces). Edite aqui para esta feature.
+            </span>
           </div>
         )}
         <label className="chk">
@@ -171,9 +196,17 @@ export function ArchiveModal() {
           </li>
           <li>manter a branch no remoto intacta</li>
         </ul>
-        <label className="chk">
-          <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)} /> Também apagar a branch local{" "}
-          <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{f.branch}</span>
+        <label className="chk" style={{ alignItems: "flex-start" }}>
+          <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)} style={{ marginTop: 3 }} />
+          <span>
+            Também apagar {f.repos.length > 1 ? "as branches locais" : "a branch local"}
+            {f.repos.map((r) => (
+              <span key={r.name} className="mono" style={{ display: "block", fontSize: 11, color: "var(--muted)" }}>
+                {f.repos.length > 1 ? `${r.name}: ` : ""}
+                {r.branch}
+              </span>
+            ))}
+          </span>
         </label>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button className="btn" onClick={close}>
@@ -204,7 +237,7 @@ export function Palette() {
   const [idx, setIdx] = useState(0);
   const features = activeFeatures(s);
   const items: PaletteItem[] = [
-    ...features.map((f, i) => ({ id: f.id, label: f.name, hint: `${f.branch} · Ctrl ${i + 1}`, color: f.color, run: () => s.select(f.id) })),
+    ...features.map((f, i) => ({ id: f.id, label: f.name, hint: `${branchesLabel(f)} · Ctrl ${i + 1}`, color: f.color, run: () => s.select(f.id) })),
     { id: "c-new", label: "Nova feature", hint: "Ctrl Shift N", run: () => s.openModal("new") },
     { id: "c-kiro", label: "Abrir a feature atual no Kiro", hint: "Ctrl Shift O", run: () => void s.openKiro() },
     { id: "c-up", label: "Atualizar da base", hint: "Ctrl Shift U", run: () => void s.updateFromBase(false) },

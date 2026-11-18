@@ -48,7 +48,7 @@ fn setup_repo(tmp: &Path, name: &str) -> PathBuf {
 }
 
 fn spec(clone: &Path, name: &str, base: &str) -> RepoSpec {
-    RepoSpec { name: name.into(), clone_path: clone.to_string_lossy().into(), base: base.into() }
+    RepoSpec { name: name.into(), clone_path: clone.to_string_lossy().into(), base: base.into(), branch: None }
 }
 
 /// Empurra um commit novo para `develop` no remoto (simula um colega).
@@ -364,4 +364,40 @@ fn archive_keeps_unmerged_branch_without_force() {
     assert!(res.deleted_branches.is_empty());
     assert_eq!(res.warnings.len(), 1, "{:?}", res.warnings);
     assert!(!sh(&api, &["branch", "--list", "feature/pay-4"]).trim().is_empty());
+}
+
+#[test]
+fn each_repo_can_have_its_own_branch() {
+    let tmp = TempDir::new().unwrap();
+    let api = setup_repo(tmp.path(), "api");
+    let web = setup_repo(tmp.path(), "web");
+    let root = tmp.path().join("wt/pay-7");
+    let mut api_spec = spec(&api, "api", "origin/develop");
+    api_spec.branch = Some("feat/api-PAY-7-pix".into());
+    let mut web_spec = spec(&web, "web", "origin/main");
+    web_spec.branch = Some("feature/web/PAY-7-pix".into());
+    let created = git::create_feature(&CreateFeatureParams {
+        root: root.to_string_lossy().into(),
+        branch: String::new(),
+        repos: vec![api_spec, web_spec.clone()],
+        fetch: false,
+    })
+    .unwrap();
+    assert_eq!(created[0].branch, "feat/api-PAY-7-pix");
+    assert_eq!(created[1].branch, "feature/web/PAY-7-pix");
+    let st = git::status(&StatusParams { path: root.join("web").to_string_lossy().into(), base: None }).unwrap();
+    assert_eq!(st.branch.as_deref(), Some("feature/web/PAY-7-pix"));
+
+    // Uma branch inválida em qualquer repo: nada é criado.
+    let mut bad = spec(&api, "api", "origin/main");
+    bad.branch = Some("feat/com espaço".into());
+    let err = git::create_feature(&CreateFeatureParams {
+        root: tmp.path().join("wt/pay-8").to_string_lossy().into(),
+        branch: String::new(),
+        repos: vec![spec(&web, "web", "origin/main"), bad],
+        fetch: false,
+    })
+    .unwrap_err();
+    assert_eq!(err.code, codes::INVALID_PARAMS);
+    assert!(!tmp.path().join("wt/pay-8").exists());
 }

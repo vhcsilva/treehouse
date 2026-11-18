@@ -104,14 +104,17 @@ pub fn create_feature(p: &CreateFeatureParams) -> Result<Vec<CreatedWorktree>> {
     if p.repos.is_empty() {
         return Err(AgentError::invalid("escolha ao menos um repositório"));
     }
-    validate_branch(&p.branch)?;
+    // Valida todas as branches antes de criar qualquer worktree.
+    for repo in &p.repos {
+        validate_branch(branch_for(repo, &p.branch))?;
+    }
     let root = expand(&p.root);
     let root_existed = root.exists();
     std::fs::create_dir_all(&root)?;
 
     let mut created: Vec<(PathBuf, CreatedWorktree)> = Vec::new();
     for repo in &p.repos {
-        match add_one(&root, &p.branch, repo, p.fetch) {
+        match add_one(&root, branch_for(repo, &p.branch), repo, p.fetch) {
             Ok(c) => created.push((expand(&repo.clone_path), c)),
             Err(e) => {
                 rollback(&created);
@@ -129,10 +132,16 @@ pub fn create_feature(p: &CreateFeatureParams) -> Result<Vec<CreatedWorktree>> {
 }
 
 pub fn add_repo(p: &AddRepoParams) -> Result<CreatedWorktree> {
-    validate_branch(&p.branch)?;
+    let branch = branch_for(&p.repo, &p.branch);
+    validate_branch(branch)?;
     let root = expand(&p.root);
     std::fs::create_dir_all(&root)?;
-    add_one(&root, &p.branch, &p.repo, p.fetch)
+    add_one(&root, branch, &p.repo, p.fetch)
+}
+
+/// A branch do repo, se definida; senão, a geral do pedido.
+fn branch_for<'a>(repo: &'a RepoSpec, default: &'a str) -> &'a str {
+    repo.branch.as_deref().filter(|b| !b.is_empty()).unwrap_or(default)
 }
 
 fn validate_branch(branch: &str) -> Result<()> {
